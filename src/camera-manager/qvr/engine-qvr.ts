@@ -51,10 +51,8 @@ export class QVRCameraManagerEngine
     cameraIDs: Set<string>,
     query: PartialEventQuery,
   ): EventQuery[] | null {
-    const firstId = [...cameraIDs][0];
-    const config = firstId ? store.getCameraConfig(firstId) : null;
-    const entryId = config?.qvr?.entry_id;
-    if (!entryId || !query.start || !query.end) return null;
+    void store;
+    if (!query.start || !query.end) return null;
     return [
       {
         type: QueryType.Event,
@@ -72,18 +70,34 @@ export class QVRCameraManagerEngine
     store: CameraManagerReadOnlyConfigStore,
     query: EventQuery,
   ): Promise<EventQueryResultsMap | null> {
-    let entryId: string | undefined;
-    for (const id of query.cameraIDs) {
-      const config = store.getCameraConfig(id);
-      if (config?.qvr?.entry_id) {
-        entryId = config.qvr.entry_id;
-        break;
-      }
-    }
-    if (!entryId) return null;
+    const firstCameraID = [...query.cameraIDs][0];
+    const cameraConfig = firstCameraID ? store.getCameraConfig(firstCameraID) : null;
+    const cameraEntity = cameraConfig ? getCameraEntityFromConfig(cameraConfig) : null;
+    const state = cameraEntity ? hass.states[cameraEntity] : undefined;
+    const attrs = state?.attributes as { [key: string]: unknown } | undefined;
+    const entryId =
+      cameraConfig?.qvr?.entry_id || (typeof attrs?.qvr_entry_id === 'string' ? attrs.qvr_entry_id : undefined);
+    const cameraGuid =
+      cameraConfig?.qvr?.camera_guid || (typeof attrs?.qvr_guid === 'string' ? attrs.qvr_guid : undefined);
+
+    if (!entryId && !cameraEntity) return null;
 
     const baseUrl = hass.hassUrl?.() ?? '';
-    const url = `${baseUrl}/api/qnap_qvr_connector/events?entry_id=${encodeURIComponent(entryId)}&start_time=${query.start?.getTime() ?? 0}&end_time=${query.end?.getTime() ?? 0}&max_result=100`;
+    const params = new URLSearchParams({
+      start_time: String(query.start?.getTime() ?? 0),
+      end_time: String(query.end?.getTime() ?? 0),
+      max_result: '100',
+    });
+    if (entryId) {
+      params.set('entry_id', entryId);
+    }
+    if (cameraEntity) {
+      params.set('camera_entity', cameraEntity);
+    }
+    if (cameraGuid) {
+      params.set('camera_guid', cameraGuid);
+    }
+    const url = `${baseUrl}/api/qnap_qvr_connector/events?${params.toString()}`;
 
     try {
       const accessToken = (hass.connection?.options?.auth as { accessToken?: string })?.accessToken ?? '';
@@ -107,6 +121,12 @@ export class QVRCameraManagerEngine
         const start = new Date(startMs);
         const end = new Date(startMs + 10000);
         const guid = evt.guid ?? evt.global_channel_id ?? evt.channel_guid ?? evt.channel_guid_list?.[0];
+        const stream =
+          typeof evt.qvr_stream === 'number'
+            ? evt.qvr_stream
+            : typeof evt.stream === 'number'
+              ? evt.stream
+              : undefined;
         events.push({
           id: `qvr_${evt.metadata_id ?? evt.log_id ?? startMs}_${cameraID}`,
           cameraID,
@@ -114,6 +134,7 @@ export class QVRCameraManagerEngine
           end,
           type: ViewMediaType.Clip,
           guid: typeof guid === 'string' ? guid : undefined,
+          stream,
           title: String(evt.content ?? '').slice(0, 80),
         });
       }
@@ -188,8 +209,17 @@ export class QVRCameraManagerEngine
     if (!(media instanceof QVREventViewMedia)) {
       return null;
     }
-    const entryId = cameraConfig.qvr?.entry_id;
-    const guid = media.getEvent().guid ?? cameraConfig.qvr?.camera_guid;
+    const cameraEntity = getCameraEntityFromConfig(cameraConfig);
+    const state = cameraEntity ? hass.states[cameraEntity] : undefined;
+    const attrs = state?.attributes as { [key: string]: unknown } | undefined;
+    const entryId =
+      cameraConfig.qvr?.entry_id ||
+      (typeof attrs?.qvr_entry_id === 'string' ? attrs.qvr_entry_id : undefined);
+    const guid =
+      media.getEvent().guid ||
+      cameraConfig.qvr?.camera_guid ||
+      (typeof attrs?.qvr_guid === 'string' ? attrs.qvr_guid : undefined);
+    const stream = media.getEvent().stream ?? 0;
     const start = media.getStartTime()?.getTime();
     const end = media.getEndTime()?.getTime();
     if (!entryId || !guid || !start || !end) {
@@ -197,7 +227,7 @@ export class QVRCameraManagerEngine
     }
     const baseUrl = hass.hassUrl?.() ?? '';
     return {
-      endpoint: `${baseUrl}/api/qnap_qvr_connector/recording/${encodeURIComponent(entryId)}/${encodeURIComponent(guid)}/0?start=${start}&end=${end}`,
+      endpoint: `${baseUrl}/api/qnap_qvr_connector/recording/${encodeURIComponent(entryId)}/${encodeURIComponent(guid)}/${stream}?start=${start}&end=${end}`,
     };
   }
 

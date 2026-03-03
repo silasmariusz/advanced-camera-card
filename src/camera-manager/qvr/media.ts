@@ -13,6 +13,7 @@ export interface QVREvent {
   end: Date;
   type: ViewMediaType;
   guid?: string;
+  stream?: number;
   thumbnail?: string;
   title?: string;
 }
