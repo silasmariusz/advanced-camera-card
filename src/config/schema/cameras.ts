@@ -93,6 +93,7 @@ const ENGINES = [
   'frigate',
   'generic',
   'motioneye',
+  'qvr',
   'reolink',
   'tplink',
 ] as const;
@@ -105,6 +106,10 @@ export const cameraConfigDefault = {
   engine: 'auto' as const,
   frigate: {
     client_id: 'frigate' as const,
+  },
+  qvr: {
+    entry_id: '' as const,
+    camera_guid: '' as const,
   },
   live_provider: 'auto' as const,
   motioneye: {
@@ -223,6 +228,12 @@ export const cameraConfigSchema = z
         zones: z.string().array().optional(),
       })
       .default(cameraConfigDefault.frigate),
+    qvr: z
+      .object({
+        entry_id: z.string().default(cameraConfigDefault.qvr.entry_id),
+        camera_guid: z.string().optional(),
+      })
+      .default(cameraConfigDefault.qvr),
     motioneye: z
       .object({
         url: z.string().optional(),

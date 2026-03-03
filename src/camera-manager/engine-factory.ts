@@ -86,6 +86,13 @@ export class CameraManagerEngineFactory {
           options.eventCallback,
         );
         break;
+      case Engine.QVR:
+        const { QVRCameraManagerEngine } = await import('./qvr/engine-qvr');
+        cameraManagerEngine = new QVRCameraManagerEngine(
+          options.stateWatcher,
+          options.eventCallback,
+        );
+        break;
     }
     return cameraManagerEngine;
   }
@@ -105,6 +112,8 @@ export class CameraManagerEngineFactory {
       engine = Engine.Reolink;
     } else if (cameraConfig.engine === 'tplink') {
       engine = Engine.TPLink;
+    } else if (cameraConfig.engine === 'qvr') {
+      engine = Engine.QVR;
     } else {
       const cameraEntity = getCameraEntityFromConfig(cameraConfig);
 
@@ -135,6 +144,9 @@ export class CameraManagerEngineFactory {
             break;
           case 'tplink':
             engine = Engine.TPLink;
+            break;
+          case 'qnap_qvr_connector':
+            engine = Engine.QVR;
             break;
           default:
             engine = Engine.Generic;
