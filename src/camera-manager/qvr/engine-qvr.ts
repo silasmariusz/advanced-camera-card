@@ -106,12 +106,14 @@ export class QVRCameraManagerEngine
         if (!startMs) continue;
         const start = new Date(startMs);
         const end = new Date(startMs + 10000);
+        const guid = evt.guid ?? evt.global_channel_id ?? evt.channel_guid ?? evt.channel_guid_list?.[0];
         events.push({
-          id: `qvr_${evt.log_id ?? startMs}_${cameraID}`,
+          id: `qvr_${evt.metadata_id ?? evt.log_id ?? startMs}_${cameraID}`,
           cameraID,
           start,
           end,
           type: ViewMediaType.Clip,
+          guid: typeof guid === 'string' ? guid : undefined,
           title: String(evt.content ?? '').slice(0, 80),
         });
       }
@@ -179,14 +181,24 @@ export class QVRCameraManagerEngine
   }
 
   public async getMediaDownloadPath(
-    _hass: HomeAssistant,
-    _cameraConfig: CameraConfig,
-    _media: ViewMedia,
+    hass: HomeAssistant,
+    cameraConfig: CameraConfig,
+    media: ViewMedia,
   ): Promise<Endpoint | null> {
-    void _hass;
-    void _cameraConfig;
-    void _media;
-    return null;
+    if (!(media instanceof QVREventViewMedia)) {
+      return null;
+    }
+    const entryId = cameraConfig.qvr?.entry_id;
+    const guid = media.getEvent().guid ?? cameraConfig.qvr?.camera_guid;
+    const start = media.getStartTime()?.getTime();
+    const end = media.getEndTime()?.getTime();
+    if (!entryId || !guid || !start || !end) {
+      return null;
+    }
+    const baseUrl = hass.hassUrl?.() ?? '';
+    return {
+      endpoint: `${baseUrl}/api/qnap_qvr_connector/recording/${encodeURIComponent(entryId)}/${encodeURIComponent(guid)}/0?start=${start}&end=${end}`,
+    };
   }
 
   public async favoriteMedia(

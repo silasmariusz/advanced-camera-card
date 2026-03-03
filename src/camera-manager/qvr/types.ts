@@ -7,6 +7,7 @@ export interface QVREvent {
   start: Date;
   end: Date;
   type: ViewMediaType.Clip | ViewMediaType.Snapshot;
+  guid?: string;
   thumbnail?: string;
   title?: string;
 }

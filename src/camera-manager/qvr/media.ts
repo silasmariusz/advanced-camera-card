@@ -12,6 +12,7 @@ export interface QVREvent {
   start: Date;
   end: Date;
   type: ViewMediaType;
+  guid?: string;
   thumbnail?: string;
   title?: string;
 }
@@ -50,6 +51,10 @@ export class QVREventViewMedia extends ViewMedia implements EventViewMedia {
 
   public getVideoContentType(): VideoContentType | null {
     return ViewMediaType.Clip === this.getMediaType() ? VideoContentType.MP4 : null;
+  }
+
+  public getEvent(): QVREvent {
+    return this._event;
   }
 
   public getWhat(): string[] | null {
