@@ -1,6 +1,6 @@
 {
   "name": "Advanced Camera Card",
   "render_readme": true,
-  "filename": "advanced-camera-card.js",
+  "filename": "dist/advanced-camera-card.js",
   "homeassistant": "2022.3.0"
 }
