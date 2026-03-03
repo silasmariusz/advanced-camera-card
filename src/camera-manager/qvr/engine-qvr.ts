@@ -52,13 +52,14 @@ export class QVRCameraManagerEngine
     query: PartialEventQuery,
   ): EventQuery[] | null {
     void store;
-    if (!query.start || !query.end) return null;
+    const end = query.end ?? new Date();
+    const start = query.start ?? new Date(end.getTime() - 24 * 60 * 60 * 1000);
     return [
       {
         type: QueryType.Event,
         cameraIDs,
-        start: query.start,
-        end: query.end,
+        start,
+        end,
         hasSnapshot: query.hasSnapshot,
         hasClip: query.hasClip,
       },
@@ -116,7 +117,10 @@ export class QVRCameraManagerEngine
 
       for (const evt of items) {
         const ts = evt.UTC_time ?? evt.UTC_time_s;
-        const startMs = typeof ts === 'string' ? parseInt(ts, 10) : ts;
+        let startMs = typeof ts === 'string' ? parseInt(ts, 10) : ts;
+        if (typeof startMs !== 'number' || Number.isNaN(startMs)) continue;
+        // Some APIs return Unix seconds, while ACC expects milliseconds.
+        if (startMs < 100000000000) startMs *= 1000;
         if (!startMs) continue;
         const start = new Date(startMs);
         const end = new Date(startMs + 10000);
